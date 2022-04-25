@@ -24,6 +24,11 @@ const ImageType = new GraphQLObjectType({
       description: "Title of the image.",
       resolve: (parent) => parent.data[0].title,
     },
+    description: {
+      type: GraphQLString,
+      description: "Description of the image.",
+      resolve: (parent) => parent.data[0].description,
+    },
     uri: {
       type: GraphQLString,
       description: "Title of the image.",
@@ -43,7 +48,8 @@ const RootQuery = new GraphQLObjectType({
         q: { type: GraphQLString },
         from: { type: GraphQLInt },
       },
-      resolve: async (parent, { q, from }) => {
+      resolve: async (parent, { q, from = 1 }) => {
+        console.log({ q, from });
         const res = await axios.get(NASA_API_ROOT, {
           params: {
             api_key: NASA_API_KEY,
