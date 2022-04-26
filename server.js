@@ -16,4 +16,11 @@ app.use(cors());
 
 app.use("/graphql", graphqlHTTP({ graphiql: true, schema }));
 
+app.use(express.static("public"));
+
+// Serve front end Javascript files for all other routes
+app.get("*", (req, res) => {
+  res.sendFile(path.resolve(__dirname, "client", "build", "index.html"));
+});
+
 app.listen(PORT, () => console.log(`Listening on port: ${PORT}`));
