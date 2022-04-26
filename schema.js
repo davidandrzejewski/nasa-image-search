@@ -9,10 +9,11 @@ const axios = require("axios");
 
 const NASA_API_ROOT = "https://images-api.nasa.gov/search";
 const NASA_API_KEY = process.env.NASA_API_KEY;
+const NASA_PAGE_SIZE = 100;
 
 const ImageType = new GraphQLObjectType({
   name: "Image",
-  description: "Image uri and description from Nasa Images API.",
+  description: "Image data from Nasa Images API.",
   fields: () => ({
     id: {
       type: GraphQLString,
@@ -37,29 +38,75 @@ const ImageType = new GraphQLObjectType({
   }),
 });
 
+const ImageQueryType = new GraphQLObjectType({
+  name: "ImageQueryType",
+  description: "The results of an image query including meta data and results",
+  fields: () => ({
+    count: { type: GraphQLInt },
+    items: { type: GraphQLList(ImageType) },
+  }),
+});
+
 const RootQuery = new GraphQLObjectType({
   name: "Query",
   description: "Root Query.",
   fields: () => ({
     images: {
-      type: new GraphQLList(ImageType),
+      type: ImageQueryType,
       description: "A list of Images from the Nasa Images API",
       args: {
         q: { type: GraphQLString },
-        from: { type: GraphQLInt },
+        limit: { type: GraphQLInt },
+        offset: { type: GraphQLInt },
       },
-      resolve: async (parent, { q, from = 1 }) => {
-        console.log({ q, from });
+      resolve: async (parent, { q = "", limit = 20, offset = 0 }) => {
+        // determine the nasa page for the first item in the requested group
+        const pageLower = Math.floor(offset / NASA_PAGE_SIZE) + 1;
+        // determine the nasa page for the last item in the requested group
+        const pageUpper = Math.floor((offset + limit) / NASA_PAGE_SIZE) + 1;
+
+        // base query to fetch images for a query q
+        const nasaAPIQuery = {
+          api_key: NASA_API_KEY,
+          media_type: "image",
+          q,
+        };
+
+        // fetch the nasa collection for the page which the first item in the group falls under
         const res = await axios.get(NASA_API_ROOT, {
           params: {
-            api_key: NASA_API_KEY,
-            media_type: "image",
-            q,
-            page: from,
+            ...nasaAPIQuery,
+            page: pageLower,
           },
         });
+        const count = res.data.collection.metadata.total_hits;
+        const items = res.data.collection.items;
 
-        return res.data.collection.items;
+        if (pageUpper !== pageLower) {
+          // if the page of the last item of the requested group falls on a separate page from the nasa api, fetch the items on this next page
+          const resNext = await axios.get(NASA_API_ROOT, {
+            params: {
+              ...nasaAPIQuery,
+              page: pageUpper,
+            },
+          });
+
+          // append the next pages items to the first pages items
+          items.concat(resNext.data.collection.items);
+        }
+
+        // determine the start index of the requested group
+        const paginationStartIndex = offset % NASA_PAGE_SIZE;
+
+        return {
+          count,
+          paginationStartIndex,
+          // return the subset of the items array starting from the paginationStartIndex until paginationStartIndex + offset
+          items: items.slice(
+            paginationStartIndex,
+            paginationStartIndex + limit
+          ),
+        };
       },
     },
   }),
