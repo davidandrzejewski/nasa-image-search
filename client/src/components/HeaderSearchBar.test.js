@@ -1,10 +1,10 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
-import SearchBar from "./SearchBar";
+import HeaderSearchBar from "./HeaderSearchBar";
 
 describe("The search bar", () => {
   it("changes text", () => {
-    render(<SearchBar />);
+    render(<HeaderSearchBar />);
 
     const searchInput = screen.getByRole("searchbox");
 

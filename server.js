@@ -14,11 +14,13 @@ const PORT = process.env.PORT || 5000;
 // Cross-Origin Resource Sharing for local development
 app.use(cors());
 
+// serve our front end Javascript files
+app.use(express.static(path.resolve(__dirname, "client/build")));
+
+// route to hit our graphql
 app.use("/graphql", graphqlHTTP({ graphiql: true, schema }));
 
-app.use(express.static("public"));
-
-// Serve front end Javascript files for all other routes
+// Return front end Javascript files for all other routes
 app.get("*", (req, res) => {
   res.sendFile(path.resolve(__dirname, "client", "build", "index.html"));
 });
