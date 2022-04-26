@@ -8,7 +8,6 @@ const {
 const axios = require("axios");
 
 const NASA_API_ROOT = "https://images-api.nasa.gov/search";
-const NASA_API_KEY = process.env.NASA_API_KEY;
 const NASA_PAGE_SIZE = 100;
 
 const ImageType = new GraphQLObjectType({
@@ -67,46 +66,50 @@ const RootQuery = new GraphQLObjectType({
 
         // base query to fetch images for a query q
         const nasaAPIQuery = {
-          api_key: NASA_API_KEY,
           media_type: "image",
           q,
         };
 
-        // fetch the nasa collection for the page which the first item in the group falls under
-        const res = await axios.get(NASA_API_ROOT, {
-          params: {
-            ...nasaAPIQuery,
-            page: pageLower,
-          },
-        });
-        const count = res.data.collection.metadata.total_hits;
-        const items = res.data.collection.items;
-
-        if (pageUpper !== pageLower) {
-          // if the page of the last item of the requested group falls on a separate page from the nasa api, fetch the items on this next page
-          const resNext = await axios.get(NASA_API_ROOT, {
+        try {
+          // fetch the nasa collection for the page which the first item in the group falls under
+          const res = await axios.get(NASA_API_ROOT, {
             params: {
               ...nasaAPIQuery,
-              page: pageUpper,
+              page: pageLower,
             },
           });
+          const count = res.data.collection.metadata.total_hits;
+          const items = res.data.collection.items;
 
-          // append the next pages items to the first pages items
-          items.concat(resNext.data.collection.items);
-        }
+          if (pageUpper !== pageLower) {
+            // if the page of the last item of the requested group falls on a separate page from the nasa api, fetch the items on this next page
+            const resNext = await axios.get(NASA_API_ROOT, {
+              params: {
+                ...nasaAPIQuery,
+                page: pageUpper,
+              },
+            });
 
-        // determine the start index of the requested group
-        const paginationStartIndex = offset % NASA_PAGE_SIZE;
+            // append the next pages items to the first pages items
+            items.concat(resNext.data.collection.items);
+          }
 
-        return {
-          count,
-          paginationStartIndex,
-          // return the subset of the items array starting from the paginationStartIndex until paginationStartIndex + offset
-          items: items.slice(
+          // determine the start index of the requested group
+          const paginationStartIndex = offset % NASA_PAGE_SIZE;
+
+          return {
+            count,
             paginationStartIndex,
-            paginationStartIndex + limit
-          ),
-        };
+            // return the subset of the items array starting from the paginationStartIndex until paginationStartIndex + offset
+            items: items.slice(
+              paginationStartIndex,
+              paginationStartIndex + limit
+            ),
+          };
+        } catch (error) {
+          console.log({ error });
+          return { error };
+        }
       },
     },
   }),
